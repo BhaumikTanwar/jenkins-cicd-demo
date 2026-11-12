@@ -2,29 +2,53 @@
 pipeline {
     agent any
 
+    environment {
+        KUBECTL = 'C:\\Users\\bhaum\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin\\kubectl.exe'
+        KUBECONFIG = 'C:\\Users\\bhaum\\.kube\\config'
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                echo 'Source code checked out from GitHub.'
+                echo 'Jenkins checks out the Jenkinsfile repository automatically.'
+                bat 'dir'
+                bat 'dir kubernetes'
             }
         }
 
-        stage('Build') {
+        stage('Validate Manifests') {
             steps {
-                echo 'Building the application...'
+                bat '"%KUBECTL%" apply --dry-run=client --validate=false -f kubernetes\\deployment.yaml'
+                bat '"%KUBECTL%" apply --dry-run=client --validate=false -f kubernetes\\service.yaml'
             }
         }
 
-        stage('Test') {
+        stage('Deploy to Kubernetes') {
             steps {
-                echo 'Testing the application...'
+                bat '"%KUBECTL%" apply --validate=false -f kubernetes\\deployment.yaml'
+                bat '"%KUBECTL%" apply --validate=false -f kubernetes\\service.yaml'
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                bat '"%KUBECTL%" rollout status deployment/flask-demo --timeout=120s'
+                bat '"%KUBECTL%" get deployments'
+                bat '"%KUBECTL%" get services'
+                bat '"%KUBECTL%" get pods'
             }
         }
     }
 
     post {
         success {
-            echo 'CI/CD pipeline completed successfully.'
+            echo 'Kubernetes deployment completed successfully.'
+        }
+        failure {
+            echo 'Deployment failed. Check Console Output.'
+        }
+        always {
+            echo 'Pipeline execution finished.'
         }
     }
 }
